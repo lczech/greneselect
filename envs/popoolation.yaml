@@ -1,0 +1,7 @@
+# Needed by popoolation
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - perl
+  - samtools ==1.9
