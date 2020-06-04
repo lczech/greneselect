@@ -8,6 +8,9 @@ include: "rules/common.smk"
 # Simply comment or uncomment as needed. We might change this to using config later.
 rule all:
     input:
+        # Plink
+        config["rundir"] + "plink/freq.frq",
+
         # PoPoolation
         config["rundir"] + "popoolation/varslid.pdf",
 
@@ -19,6 +22,7 @@ localrules: all
 #     Rule Modules
 # =================================================================================================
 
+include: "rules/plink.smk"
 include: "rules/popoolation.smk"
 
 # =================================================================================================

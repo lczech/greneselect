@@ -11,6 +11,9 @@ data:
   # Directory where the mapped reads are stored. All `bam` and `bai` files from there are used.
   mapped_samples: "../grenepipe/run-f-100k/dedup"
 
+  # Variant call file that describes the variants found in the samples.
+  called_variants: "../grenepipe/run-f-100k/annotated/all.vcf.gz"
+
   reference:
 
     # Path to the reference genome, using the file ideally as it is provided by the GATK bundle.
