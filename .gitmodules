@@ -1,0 +1,3 @@
+[submodule "tools/popoolation"]
+	path = tools/popoolation
+	url = git@github.com:lczech/popoolation.git
