@@ -18,3 +18,23 @@ data:
 
     # Path to the reference genome, using the file ideally as it is provided by the GATK bundle.
     genome: "../grenepipe/data/genome.fa"
+
+# =================================================================================================
+#     Tool Parameters
+# =================================================================================================
+
+params:
+
+  # ----------------------------------------------------------------------
+  #     bamfreq
+  # ----------------------------------------------------------------------
+
+  bamfreq:
+    # -h	only print heterozygous positions
+    # -a	only print natural bases ACTG
+    # -f	min fraction of read support
+    # -q	min map quality
+    # -c	min coverage of position to be reported
+    # -m	max coverage of position to be reported
+    # -r	only print raw counts without bases, coverage or position
+    extra: ""

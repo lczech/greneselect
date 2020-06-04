@@ -1,3 +1,6 @@
 [submodule "tools/popoolation"]
 	path = tools/popoolation
 	url = git@github.com:lczech/popoolation.git
+[submodule "tools/bamfreq"]
+	path = tools/bamfreq
+	url = git@github.com:MoisesExpositoAlonso/bamfreq.git
