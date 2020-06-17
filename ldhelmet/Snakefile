@@ -1,0 +1,187 @@
+# =================================================================================================
+#     General Setup
+# =================================================================================================
+
+# Ensure min Snakemake version
+snakemake.utils.min_version("5.7")
+
+# Load config file
+configfile: "config.yaml"
+
+# Specify number of threads to use. Hardcoded for now - gets overwritten automatically
+# if snakemake is called with less threads, so we can use a large value here.
+num_threads = 24
+
+# =================================================================================================
+#     Rule all
+# =================================================================================================
+
+rule all:
+    input:
+        expand( config["data"]["output_dir"] + "/output_{chr}.txt", chr=config["data"]["sequence_chr"] ),
+        expand( config["data"]["output_dir"] + "/output_{chr}.max", chr=config["data"]["sequence_chr"] )
+
+localrules: all
+
+# =================================================================================================
+#     Rule find_confs
+# =================================================================================================
+
+rule find_confs:
+    input:
+        expand(
+            config["data"]["sequence_dir"] + "/{chr}." + config["data"]["sequence_ext"],
+            chr=config["data"]["sequence_chr"]
+        )
+    output:
+        config["data"]["output_dir"] + "/output.conf"
+    params:
+        window_size = config["params"]["ldhelmet"]["window_size"]
+    threads:
+        num_threads
+    conda:
+        "env.yaml"
+    log:
+        "logs/find_confs.log"
+    benchmark:
+        "benchmarks/find_confs.txt"
+    shell:
+        "ldhelmet find_confs --num_threads {threads} -w {params.window_size} -o {output} {input} > {log} 2>&1"
+
+# =================================================================================================
+#     Rule table_gen
+# =================================================================================================
+
+rule table_gen:
+    input:
+        conf = config["data"]["output_dir"] + "/output.conf"
+    output:
+        config["data"]["output_dir"] + "/output.lk"
+    params:
+        theta = config["params"]["ldhelmet"]["theta"],
+        rho_grid = config["params"]["ldhelmet"]["rho_grid"]
+    threads:
+        num_threads
+    conda:
+        "env.yaml"
+    log:
+        "logs/table_gen.log"
+    benchmark:
+        "benchmarks/table_gen.txt"
+    shell:
+        "ldhelmet table_gen --num_threads {threads} -c {input.conf} "
+        "-t {params.theta} -r {params.rho_grid} -o {output} > {log} 2>&1"
+
+# =================================================================================================
+#     Rule pade
+# =================================================================================================
+
+rule pade:
+    input:
+        conf = config["data"]["output_dir"] + "/output.conf"
+    output:
+        config["data"]["output_dir"] + "/output.pade"
+    params:
+        theta = config["params"]["ldhelmet"]["theta"],
+        pade_coefficients = config["params"]["ldhelmet"]["pade_coefficients"]
+    threads:
+        num_threads
+    conda:
+        "env.yaml"
+    log:
+        "logs/pade.log"
+    benchmark:
+        "benchmarks/pade.txt"
+    shell:
+        "ldhelmet pade --num_threads {threads} -c {input.conf} "
+        "-t {params.theta} -x {params.pade_coefficients} -o {output} > {log} 2>&1"
+
+# =================================================================================================
+#     Rule rjmcmc
+# =================================================================================================
+
+rule rjmcmc:
+    input:
+        chr  = config["data"]["sequence_dir"] + "/{chr}." + config["data"]["sequence_ext"],
+        lk   = config["data"]["output_dir"] + "/output.lk",
+        pade = config["data"]["output_dir"] + "/output.pade"
+    output:
+        config["data"]["output_dir"] + "/output_{chr}.post"
+    params:
+        burn_in = config["params"]["ldhelmet"]["burn_in"],
+        iterations = config["params"]["ldhelmet"]["iterations"],
+        block_penatly = config["params"]["ldhelmet"]["block_penatly"],
+        window_size = config["params"]["ldhelmet"]["window_size"],
+
+        mutation_matrix = (
+            "-m " + config["params"]["ldhelmet"]["mutation_matrix"]
+            if config["params"]["ldhelmet"]["mutation_matrix"]
+            else ""
+        ),
+        anc_allele_priors = (
+            "-a " + config["params"]["ldhelmet"]["anc_allele_priors"]
+            if config["params"]["ldhelmet"]["anc_allele_priors"]
+            else ""
+        )
+    threads:
+        num_threads
+    conda:
+        "env.yaml"
+    log:
+        "logs/rjmcmc_{chr}.log"
+    benchmark:
+        "benchmarks/rjmcmc_{chr}.txt"
+    shell:
+        "ldhelmet rjmcmc --num_threads {threads} -l {input.lk} -p {input.pade} -s {input.chr} "
+        + "-w {params.window_size} -b {params.block_penatly} "
+        + "{params.mutation_matrix} {params.anc_allele_priors} "
+        + "--burn_in {params.burn_in} -n {params.iterations} -o {output} > {log} 2>&1"
+
+# =================================================================================================
+#     Rule post_to_text
+# =================================================================================================
+
+rule post_to_text:
+    input:
+        config["data"]["output_dir"] + "/output_{chr}.post"
+    output:
+        config["data"]["output_dir"] + "/output_{chr}.txt"
+    params:
+        percentiles = config["params"]["ldhelmet"]["percentiles"]
+    conda:
+        "env.yaml"
+    log:
+        "logs/post_to_text_{chr}.log"
+    benchmark:
+        "benchmarks/post_to_text_{chr}.txt"
+    shell:
+        "ldhelmet post_to_text -m {params.percentiles} -o {output} {input} > {log} 2>&1"
+
+# =================================================================================================
+#     Rule max_lk
+# =================================================================================================
+
+rule max_lk:
+    input:
+        chr  = config["data"]["sequence_dir"] + "/{chr}." + config["data"]["sequence_ext"],
+        lk   = config["data"]["output_dir"] + "/output.lk",
+        pade = config["data"]["output_dir"] + "/output.pade"
+    output:
+        config["data"]["output_dir"] + "/output_{chr}.max"
+    params:
+        mutation_matrix = (
+            "-m " + config["params"]["ldhelmet"]["mutation_matrix"]
+            if config["params"]["ldhelmet"]["mutation_matrix"]
+            else ""
+        )
+    threads:
+        num_threads
+    conda:
+        "env.yaml"
+    log:
+        "logs/max_lk_{chr}.log"
+    benchmark:
+        "benchmarks/max_lk_{chr}.txt"
+    shell:
+        "ldhelmet max_lk --num_threads {threads} -l {input.lk} -p {input.pade} {params.mutation_matrix}"
+        + "-s {input.chr} > {output} 2> {log}"

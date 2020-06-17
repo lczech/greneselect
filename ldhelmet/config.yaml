@@ -1,0 +1,58 @@
+# =================================================================================================
+#     Input Data
+# =================================================================================================
+
+data:
+
+  # Specify the directory (without trailing slash) where the sequence files (typically: one per
+  # chromosome) reside, the file names of the chromosomes (which should neither have their directory
+  # names nor file extensions listed here), as well as the file extension.
+  # In total, these three components need to correspond to files such as "dir/chr.ext".
+  sequence_dir: "example"
+  sequence_chr:
+    - "input"
+  sequence_ext: "fasta"
+
+  # Define an output directory, without trailing slash.
+  output_dir: "out"
+
+# =================================================================================================
+#     Settings
+# =================================================================================================
+
+params:
+  ldhelmet:
+
+    # Window size in number of SNPs; recommended: 50
+    window_size: 50
+
+    # Theta: population-scaled mutation rate, in units of 1/bp,
+    # e.g. separately estimated using Watterson’s estimator on another dataset.
+    theta: 0.004 # Default: 0.01 for D. melanogaster, but we use 0.004 to 0.005 for A. thaliana
+
+    # Grid of rho values: population-scaled recombination rates, in units of 1/bp.
+    # The recommended grid of rho values is -r 0.0 0.1 10.0 1.0 100.0
+    rho_grid: "0.0 0.1 10.0 1.0 100.0"
+
+    # Number of Pade coefficients. The more coefficients, the more accurate the Padé approximation
+    # will be in the step but the longer the computation time of the Padé coefficients will be.
+    # We recommend 11  coefficients.
+    pade_coefficients: 11
+
+    # Markov chain iterations.
+    burn_in: 100000
+    iterations: 1000000
+
+    # The block penalty “smooths” the rjMCMC estimates of the recombination map.
+    # Higher block penalties will cause the inference to tend toward maps with less variation.
+    # Lower block penalties will encourage more variation in the map.
+    block_penatly: 50.0
+
+    # Optional: Mutation matrix.
+    mutation_matrix: ""
+
+    # Optional: Ancestral allele priors. If used, provide "-a filename.txt" here.
+    anc_allele_priors: ""
+
+    # Percentiles to print in the text version of the output.
+    percentiles: "-p 0.025 -p 0.05 -p 0.50 -p 0.95 -p 0.975"
