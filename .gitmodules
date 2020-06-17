@@ -1,6 +1,6 @@
 [submodule "tools/popoolation"]
-	path = tools/popoolation
+	path = popoolation/popoolation
 	url = git@github.com:lczech/popoolation.git
 [submodule "tools/bamfreq"]
-	path = tools/bamfreq
+	path = bamfreq/bamfreq
 	url = git@github.com:MoisesExpositoAlonso/bamfreq.git

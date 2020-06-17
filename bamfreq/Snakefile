@@ -1,5 +1,19 @@
 import os
 
+include: "../rules/common.smk"
+
+# =================================================================================================
+#     Target
+# =================================================================================================
+
+bam_basenames = [ os.path.basename(bam) for bam in get_all_bams() ]
+
+rule all:
+    input:
+        expand( "out/{bam_basenames}.freq", bam_basenames=bam_basenames )
+
+localrules: all
+
 # =================================================================================================
 #     bamfreq
 # =================================================================================================
@@ -8,12 +22,12 @@ rule bamfreq:
     input:
         get_all_bams()
     output:
-        [ config["rundir"] + "bamfreq/" + os.path.basename(bam) + ".freq" for bam in get_all_bams() ]
+        [ "out/" + os.path.basename(bam) + ".freq" for bam in get_all_bams() ]
     params:
-        out_prefix = config["rundir"] + "bamfreq/",
+        out_prefix = "out/",
         extra = config["params"]["bamfreq"]["extra"]
     log:
-        config["rundir"] + "logs/bamfreq.log"
+        "out/bamfreq.log"
     run:
         for bam in input:
             out_file = "{params.out_prefix}" + os.path.basename(bam) + ".freq"

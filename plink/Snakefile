@@ -1,3 +1,15 @@
+include: "../rules/common.smk"
+
+# =================================================================================================
+#     Target
+# =================================================================================================
+
+rule all:
+    input:
+        "out/freq.frq"
+
+localrules: all
+
 # =================================================================================================
 #     PLINK
 # =================================================================================================
@@ -6,14 +18,14 @@ rule frequencies_plink:
     input:
         config["data"]["called_variants"]
     output:
-        config["rundir"] + "plink/freq.frq",
-        config["rundir"] + "plink/freq.frq.counts"
+        "out/freq.frq",
+        "out/freq.frq.counts"
     params:
-        out_prefix = config["rundir"] + "plink/freq"
+        out_prefix = "out/freq"
     log:
-        config["rundir"] + "logs/plink/freq.log"
+        "out/freq.log"
     conda:
-        "../envs/plink.yaml"
+        "env.yaml"
     shell:
         "plink --vcf {input} --freq        --allow-extra-chr --out {params.out_prefix} >  {log} 2>&1 ;"
         "plink --vcf {input} --freq counts --allow-extra-chr --out {params.out_prefix} >> {log} 2>&1"

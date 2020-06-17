@@ -1,3 +1,15 @@
+include: "../rules/common.smk"
+
+# =================================================================================================
+#     Target
+# =================================================================================================
+
+rule all:
+    input:
+        "out/varslid.pdf"
+
+localrules: all
+
 # =================================================================================================
 #     PoPoolation
 # =================================================================================================
@@ -11,10 +23,10 @@ rule popoolation_pileup:
         samples=get_all_bams(),
         indices=get_all_bais(),
     output:
-        config["rundir"] + "popoolation/all.pileup"
-        # temp( config["rundir"] + "popoolation/all.pileup" )
+        "out/all.pileup"
+        # temp( "popoolation/all.pileup" )
     log:
-        config["rundir"] + "logs/popoolation/pileup.log"
+        "out/pileup.log"
     conda:
         "../envs/popoolation.yaml"
     shell:
@@ -22,12 +34,12 @@ rule popoolation_pileup:
 
 rule popoolation:
     input:
-        pileup=config["rundir"] + "popoolation/all.pileup"
+        pileup="out/all.pileup"
     output:
-        config["rundir"] + "popoolation/varslid.pdf"
+        "out/varslid.pdf"
     log:
-        config["rundir"] + "logs/popoolation/run.log"
+        "out/varslid.log"
     conda:
-        "../envs/popoolation.yaml"
+        "env.yaml"
     shell:
         "scripts/popoolation.sh {input.pileup} \"" + get_contig_list() + "\" {output} > {log} 2>&1"
