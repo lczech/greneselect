@@ -1,0 +1,14 @@
+$schema: "http://json-schema.org/draft-04/schema#"
+type: object
+
+properties:
+  sample:
+    type: string
+    description: sample name/identifier
+  population:
+    type: string
+    description: name of the population the sample belongs to
+
+required:
+  - sample
+  - population

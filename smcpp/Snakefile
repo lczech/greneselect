@@ -21,6 +21,7 @@ num_threads = 24
 
 samples = pd.read_table(config["data"]["samples"], dtype=str).set_index(["sample"], drop=False)
 # samples.index = samples.index.set_levels([i.astype(str) for i in samples.index.levels])  # enforce str in index
+snakemake.utils.validate(samples, schema="samples.schema.yaml")
 
 sample_names=list(set(samples.index.get_level_values("sample")))
 populations=list(set(samples.population.unique()))
@@ -142,7 +143,7 @@ rule estimate_cv:
                 dist_indiv=get_distinguished_individuals(
                     wildcards.population,
                     config["params"]["smpcc"]["num_distinguished_individuals"]
-                ),
+                )
             )
     output:
         out_dir + "{population}/model.final.json"
