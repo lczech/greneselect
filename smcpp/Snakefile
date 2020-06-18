@@ -73,6 +73,7 @@ logger.info("")
 
 rule all:
     input:
+        out_dir + "plot.csv",
         out_dir + "plot." + config["params"]["smpcc_plot"]["type"]
 
 localrules: all
@@ -169,7 +170,8 @@ rule plot:
     input:
         json = expand( out_dir + "{population}/model.final.json", population=populations)
     output:
-        out_dir + "plot." + config["params"]["smpcc_plot"]["type"]
+        csv = out_dir + "plot.csv",
+        img = out_dir + "plot." + config["params"]["smpcc_plot"]["type"]
     params:
         extra = config["params"]["smpcc_plot"]["extra"]
     # conda:
@@ -177,4 +179,4 @@ rule plot:
     log:
         "logs/plot.log"
     shell:
-        "smc++ plot {params.extra} {output} {input.json} > {log} 2>&1"
+        "smc++ plot {output.img} {input.json} --csv {params.extra} > {log} 2>&1"
