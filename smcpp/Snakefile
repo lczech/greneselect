@@ -1,0 +1,180 @@
+# =================================================================================================
+#     General Setup
+# =================================================================================================
+
+import pandas as pd
+import os, random
+
+# Ensure min Snakemake version
+snakemake.utils.min_version("5.7")
+
+# Load config file
+configfile: "config.yaml"
+
+# Specify number of threads to use. Hardcoded for now - gets overwritten automatically
+# if snakemake is called with less threads, so we can use a large value here.
+num_threads = 24
+
+# =================================================================================================
+#     Data
+# =================================================================================================
+
+samples = pd.read_table(config["data"]["samples"], dtype=str).set_index(["sample"], drop=False)
+# samples.index = samples.index.set_levels([i.astype(str) for i in samples.index.levels])  # enforce str in index
+
+sample_names=list(set(samples.index.get_level_values("sample")))
+populations=list(set(samples.population.unique()))
+
+# Wildcard constraints: only allow sample names from the spreadsheet to be used
+wildcard_constraints:
+    sample="|".join(sample_names),
+    population="|".join(populations),
+    chromosome="|".join(config["data"]["chromosomes"])
+
+# Get a shorthand for the output directory
+out_dir = config["data"]["output_dir"]
+if not out_dir.endswith("/"):
+    out_dir += "/"
+
+# Get the list of sample names (columns in the vcf file) that are assigned to a given population.
+def get_population_samples( population ):
+    # Python cannot handle returning list.sort() directly, so we need to store it here first...
+    pops = list( samples['sample'].loc[ samples['population'] == population ])
+    pops.sort()
+    return pops
+
+# Get the string listing a population name and its samples as expected by smc++ vcf2smc
+def get_population_list_string( wildcards ):
+    return wildcards.population + ":" + ",".join( get_population_samples( wildcards.population ))
+
+# For a given population, get k "distinguished individuals" to be used for the estimation algorithm.
+def get_distinguished_individuals( population, k ):
+    # Get samples and sort, so that we have stability in the choice over multiple runs
+    samples = get_population_samples(population)
+    samples.sort()
+    k = min(k, len(samples))
+
+    # Set random seed, again for stability, and return result.
+    random.seed(1234)
+    return random.sample(samples, k)
+
+logger.info("==================================================================")
+logger.info("Chromosomes: " + str(len(config["data"]["chromosomes"])))
+logger.info("Populations: " + str(len(populations)))
+for pop in populations:
+    logger.info("  - " + pop + ": " + str(len(get_population_samples(pop))) + " samples")
+logger.info("Total samples: " + str(len(sample_names)))
+logger.info("==================================================================")
+logger.info("")
+
+# =================================================================================================
+#     Target
+# =================================================================================================
+
+rule all:
+    input:
+        out_dir + "plot." + config["params"]["smpcc_plot"]["type"]
+
+localrules: all
+
+# =================================================================================================
+#     Helper Rules
+# =================================================================================================
+
+rule vcf_index:
+    input:
+        "{prefix}.vcf.gz"
+    output:
+        "{prefix}.vcf.gz.tbi"
+    params:
+        # pass arguments to tabix (e.g. index a vcf)
+        "-p vcf"
+    log:
+        "logs/{prefix}.vcf_index.log"
+    wrapper:
+        "0.55.1/bio/tabix"
+
+# =================================================================================================
+#     vcf_to_smc
+# =================================================================================================
+
+# The documentation of smc++ only states that we need to process each contig individually.
+# They are vague on what to do with the individual populations, but from context and usage,
+# it seems those have to also individually processed here...
+# Also, each run picks a "distinguished individual", which is given to us here from downstream
+# rules, that use a stable random choice from the available list of samples per population.
+rule vcf_to_smc:
+    input:
+        vcf = config["data"]["vcf"],
+        tbi = config["data"]["vcf"] + ".tbi"
+    output:
+        out_dir + "{population}.{chromosome}.{dist_indiv}.smc.gz"
+    params:
+        poplist = get_population_list_string, # get the samples for the given population
+        extra = config["params"]["smpcc_vcf2smc"]["extra"]
+    # conda:
+    #     "env.yaml"
+    threads:
+        num_threads
+    log:
+        "logs/vcf_to_smc/{population}.{chromosome}.{dist_indiv}.log"
+    benchmark:
+        "benchmarks/vcf_to_smc/{population}.{chromosome}.{dist_indiv}.txt"
+    shell:
+        "smc++ vcf2smc {input.vcf} {output} {wildcards.chromosome} {params.poplist} "
+        "-d {wildcards.dist_indiv} {wildcards.dist_indiv} {params.extra} --cores {threads} > {log} 2>&1"
+
+# =================================================================================================
+#     estimate / cv
+# =================================================================================================
+
+# The documentation is realy unclear as to which files need to go into a single call of this function,
+# but from context, it seems that we want all chromosomes and all their variants of "distinguished
+# individuals" that we picked to be combined here. So let's do so. That whole call then is
+# repeated for each of our populations, estimating their respective population size history.
+rule estimate_cv:
+    input:
+        smc = lambda wildcards: \
+            expand(
+                out_dir + "{{population}}.{chromosome}.{dist_indiv}.smc.gz",
+                chromosome=config["data"]["chromosomes"],
+                dist_indiv=get_distinguished_individuals(
+                    wildcards.population,
+                    config["params"]["smpcc"]["num_distinguished_individuals"]
+                ),
+            )
+    output:
+        out_dir + "{population}/model.final.json"
+    params:
+        mu = config["params"]["smpcc_estimate_cv"]["mutation_rate"],
+        extra = config["params"]["smpcc_estimate_cv"]["extra"],
+        out_dir = out_dir + "{population}"
+    # conda:
+    #     "env.yaml"
+    threads:
+        num_threads
+    log:
+        "logs/estimate_cv/{population}.log"
+    benchmark:
+        "benchmarks/estimate_cv/{population}.txt"
+    shell:
+        "smc++ cv {params.extra} {params.mu} {input.smc} -o {params.out_dir} --cores {threads} > {log} 2>&1"
+
+# =================================================================================================
+#     plot
+# =================================================================================================
+
+# Combine the population size history estimates of all populations into one plot.
+rule plot:
+    input:
+        json = expand( out_dir + "{population}/model.final.json", population=populations)
+    output:
+        out_dir + "plot." + config["params"]["smpcc_plot"]["type"]
+    params:
+        extra = config["params"]["smpcc_plot"]["extra"]
+    # conda:
+    #     "env.yaml"
+    log:
+        "logs/plot.log"
+    shell:
+        "smc++ plot {params.extra} {output} {input.json} > {log} 2>&1"

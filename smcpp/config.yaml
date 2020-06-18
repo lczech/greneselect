@@ -1,0 +1,60 @@
+# =================================================================================================
+#     Input Data
+# =================================================================================================
+
+data:
+
+  # Sample vcf containing the variants of all samples to be processed.
+  vcf:
+    "example/example.vcf.gz"
+
+  # Input table containing the samples in the vcf file, along with their respective populations.
+  # Needs to be tab-separated, and contain at least a column "sample", listing the sample names
+  # (which correspond to the column names in th vcf file), as well as a column "population",
+  # which names the population that the sample belongs to.
+  samples:
+    "example/samples.tsv"
+
+  # List of contigs/chromosomes to process. This could be loaded from a fai file that is generated
+  # from the vcf in the future, but for now, we hard code for simplicity.
+  chromosomes:
+    - "1"
+
+  # Define an output directory.
+  output_dir: "out"
+
+# =================================================================================================
+#     Tool Parameters
+# =================================================================================================
+
+params:
+
+  # ----------------------------------------------------------------------
+  #     smpcc general
+  # ----------------------------------------------------------------------
+
+  smpcc:
+    num_distinguished_individuals: 10
+
+  # ----------------------------------------------------------------------
+  #     smpcc vcf2smc
+  # ----------------------------------------------------------------------
+
+  smpcc_vcf2smc:
+    extra: ""
+
+  # ----------------------------------------------------------------------
+  #     smpcc estimate / cv
+  # ----------------------------------------------------------------------
+
+  smpcc_estimate_cv:
+    mutation_rate: "7e-9" # Mutation rate for Arabidopsis thaliana
+    extra: ""
+
+  # ----------------------------------------------------------------------
+  #     smpcc plot
+  # ----------------------------------------------------------------------
+
+  smpcc_plot:
+    type: "pdf" # pdf, png, jpeg, etc
+    extra: ""
