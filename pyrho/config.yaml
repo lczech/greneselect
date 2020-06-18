@@ -1,0 +1,58 @@
+# =================================================================================================
+#     Input Data
+# =================================================================================================
+
+data:
+
+  # Sample vcf containing the variants of all samples to be processed.
+  vcf:
+    "example/ACB_chr_1_subset.vcf.gz"
+
+  # Result table from the smcpp workflow, as produced by the `smc++ plot --csv` command.
+  smcpp_csv: "example/ACB_pop_sizes.csv"
+
+  # List of all populations and their sizes. For now, we have this in the config file.
+  # Later, this can be refactored to be inferred from a file instead.
+  populations:
+    ACB: 10
+
+  # Define an output directory.
+  output_dir: "out"
+
+# =================================================================================================
+#     Settings
+# =================================================================================================
+
+params:
+
+  # ----------------------------------------------------------------------
+  #     pyrho make_table
+  # ----------------------------------------------------------------------
+
+  pyrho_make_table:
+    mutation_rate: 1.25e-8
+
+  # ----------------------------------------------------------------------
+  #     pyrho hyperparam
+  # ----------------------------------------------------------------------
+
+  pyrho_hyperparam:
+    mutation_rate: 1.25e-8
+    blockpenalty: "50,100"
+    windowsize: "25,50"
+    num_sims: 3
+
+  # ----------------------------------------------------------------------
+  #     pyrho optimize
+  # ----------------------------------------------------------------------
+
+  pyrho_optimize:
+    blockpenalty: "50"
+    windowsize: "50"
+
+  # ----------------------------------------------------------------------
+  #     pyrho compute_r2
+  # ----------------------------------------------------------------------
+
+  pyrho_compute_r2:
+    quantiles: "0.25,0.5,0.75"

@@ -1,0 +1,176 @@
+# =================================================================================================
+#     General Setup
+# =================================================================================================
+
+import pandas as pd
+import os, random
+
+# Ensure min Snakemake version
+snakemake.utils.min_version("5.7")
+
+# Load config file
+configfile: "config.yaml"
+
+# Specify number of threads to use. Hardcoded for now - gets overwritten automatically
+# if snakemake is called with less threads, so we can use a large value here.
+num_threads = 24
+
+# =================================================================================================
+#     Data
+# =================================================================================================
+
+# Read demography history estimation table from smc++
+history = pd.read_table(config["data"]["smcpp_csv"], dtype=str, sep=",")
+snakemake.utils.validate(history, schema="history.schema.yaml")
+populations=list(set(history.label.unique()))
+
+# Wildcard constraints: only allow population names from the spreadsheet to be used
+wildcard_constraints:
+    population="|".join(populations)
+
+def get_population_sample_size( population ):
+    return config["data"]["populations"][population]
+
+# Get a shorthand for the output directory
+out_dir = config["data"]["output_dir"]
+if not out_dir.endswith("/"):
+    out_dir += "/"
+
+logger.info("==================================================================")
+logger.info("Populations: " + str(len(populations)))
+total_size=0
+for pop in populations:
+    logger.info("  - " + pop + ": " + str(get_population_sample_size(pop)) + " samples")
+    total_size += get_population_sample_size(pop)
+logger.info("Total samples: " + str(total_size))
+logger.info("==================================================================")
+logger.info("")
+
+# =================================================================================================
+#     Target
+# =================================================================================================
+
+rule all:
+    input:
+        expand( out_dir + "{population}.rmap", population=populations),
+        expand( out_dir + "{population}_hyper.txt", population=populations),
+        expand( out_dir + "{population}_r2.txt", population=populations)
+
+localrules: all
+
+# =================================================================================================
+#     make_table
+# =================================================================================================
+
+rule make_table:
+    input:
+        smcpp = config["data"]["smcpp_csv"]
+    output:
+        out_dir + "{population}.hdf"
+    params:
+        # two times the number of samples, for diploids
+        n = lambda wildcards: get_population_sample_size(wildcards.population) * 2,
+        # 25-50% larger than n
+        N = lambda wildcards: int(get_population_sample_size(wildcards.population) * 2 * 1.5),
+        mu = config["params"]["pyrho_make_table"]["mutation_rate"]
+    # conda:
+    #     "env.yaml"
+    threads:
+        num_threads
+    log:
+        int="logs/make_table/{population}-int.log",
+        ext="logs/make_table/{population}-ext.log"
+    benchmark:
+        "benchmarks/make_table/{population}.txt"
+    shell:
+        "pyrho make_table --samplesize {params.n} --approx --moran_pop_size {params.N} --mu {params.mu} "
+        "--smcpp_file {input.smcpp} "
+        "--numthreads {threads} --outfile {output} > {log.ext} 2>&1"
+        # --logfile {log.int}
+
+# =================================================================================================
+#     hyperparam
+# =================================================================================================
+
+rule hyperparam:
+    input:
+        hdf = out_dir + "{population}.hdf",
+        smcpp = config["data"]["smcpp_csv"]
+    output:
+        out_dir + "{population}_hyper.txt"
+    params:
+        n = lambda wildcards: get_population_sample_size(wildcards.population) * 2,
+        mu = config["params"]["pyrho_hyperparam"]["mutation_rate"],
+        blockpenalty = config["params"]["pyrho_hyperparam"]["blockpenalty"],
+        windowsize = config["params"]["pyrho_hyperparam"]["windowsize"],
+        num_sims = config["params"]["pyrho_hyperparam"]["num_sims"]
+    # conda:
+    #     "env.yaml"
+    threads:
+        num_threads
+    log:
+        int="logs/hyperparam/{population}-int.log",
+        ext="logs/hyperparam/{population}-ext.log"
+    benchmark:
+        "benchmarks/hyperparam/{population}.txt"
+    shell:
+        "pyrho hyperparam -n {params.n} --mu {params.mu} "
+        "--blockpenalty {params.blockpenalty} --windowsize {params.windowsize} --num_sims {params.num_sims} "
+        "--tablefile {input.hdf} --smcpp_file {input.smcpp} "
+        "--numthreads {threads} --outfile {output} > {log.ext} 2>&1"
+        # --logfile {log.int}
+
+# =================================================================================================
+#     optimize
+# =================================================================================================
+
+rule optimize:
+    input:
+        hdf = out_dir + "{population}.hdf",
+        vcf = config["data"]["vcf"]
+    output:
+        out_dir + "{population}.rmap"
+    params:
+        blockpenalty = config["params"]["pyrho_optimize"]["blockpenalty"],
+        windowsize = config["params"]["pyrho_optimize"]["windowsize"]
+    # conda:
+    #     "env.yaml"
+    threads:
+        num_threads
+    log:
+        int="logs/optimize/{population}-int.log",
+        ext="logs/optimize/{population}-ext.log"
+    benchmark:
+        "benchmarks/optimize/{population}.txt"
+    shell:
+        "pyrho optimize --vcffile {input.vcf} --tablefile {input.hdf} "
+        "--blockpenalty {params.blockpenalty} --windowsize {params.windowsize} "
+        "--numthreads {threads} --outfile {output} > {log.ext} 2>&1"
+        # --logfile {log.int}
+
+# =================================================================================================
+#     compute_r2
+# =================================================================================================
+
+rule compute_r2:
+    input:
+        hdf = out_dir + "{population}.hdf"
+    output:
+        out_dir + "{population}_r2.txt"
+    params:
+        n = lambda wildcards: get_population_sample_size(wildcards.population) * 2,
+        quantiles = config["params"]["pyrho_compute_r2"]["quantiles"],
+    # conda:
+    #     "env.yaml"
+    threads:
+        num_threads
+    log:
+        int="logs/compute_r2/{population}-int.log",
+        ext="logs/compute_r2/{population}-ext.log"
+    benchmark:
+        "benchmarks/compute_r2/{population}.txt"
+    shell:
+        "pyrho compute_r2 --tablefile {input.hdf} "
+        "--quantiles {params.quantiles} --compute_mean --samplesize {params.n} "
+        "--outfile {output} --logfile {log.int} > {log.ext} 2>&1"
+        # --logfile {log.int}

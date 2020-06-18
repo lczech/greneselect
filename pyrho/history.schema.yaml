@@ -1,0 +1,22 @@
+$schema: "http://json-schema.org/draft-04/schema#"
+type: object
+
+properties:
+  label:
+    type: string
+    description: population name as identifier for the row
+  x:
+    type: string
+  y:
+    type: string
+  plot_type:
+    type: string
+  plot_num:
+    type: string
+
+required:
+  - label
+  - x
+  - y
+  - plot_type
+  - plot_num
