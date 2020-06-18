@@ -73,8 +73,6 @@ rule make_table:
         # 25-50% larger than n
         N = lambda wildcards: int(get_population_sample_size(wildcards.population) * 2 * 1.5),
         mu = config["params"]["pyrho_make_table"]["mutation_rate"]
-    # conda:
-    #     "env.yaml"
     threads:
         num_threads
     log:
@@ -85,8 +83,7 @@ rule make_table:
     shell:
         "pyrho make_table --samplesize {params.n} --approx --moran_pop_size {params.N} --mu {params.mu} "
         "--smcpp_file {input.smcpp} "
-        "--numthreads {threads} --outfile {output} > {log.ext} 2>&1"
-        # --logfile {log.int}
+        "--numthreads {threads} --outfile {output} --logfile {log.int} > {log.ext} 2>&1"
 
 # =================================================================================================
 #     hyperparam
@@ -104,8 +101,6 @@ rule hyperparam:
         blockpenalty = config["params"]["pyrho_hyperparam"]["blockpenalty"],
         windowsize = config["params"]["pyrho_hyperparam"]["windowsize"],
         num_sims = config["params"]["pyrho_hyperparam"]["num_sims"]
-    # conda:
-    #     "env.yaml"
     threads:
         num_threads
     log:
@@ -117,8 +112,7 @@ rule hyperparam:
         "pyrho hyperparam -n {params.n} --mu {params.mu} "
         "--blockpenalty {params.blockpenalty} --windowsize {params.windowsize} --num_sims {params.num_sims} "
         "--tablefile {input.hdf} --smcpp_file {input.smcpp} "
-        "--numthreads {threads} --outfile {output} > {log.ext} 2>&1"
-        # --logfile {log.int}
+        "--numthreads {threads} --outfile {output} --logfile {log.int} > {log.ext} 2>&1"
 
 # =================================================================================================
 #     optimize
@@ -133,8 +127,6 @@ rule optimize:
     params:
         blockpenalty = config["params"]["pyrho_optimize"]["blockpenalty"],
         windowsize = config["params"]["pyrho_optimize"]["windowsize"]
-    # conda:
-    #     "env.yaml"
     threads:
         num_threads
     log:
@@ -145,8 +137,7 @@ rule optimize:
     shell:
         "pyrho optimize --vcffile {input.vcf} --tablefile {input.hdf} "
         "--blockpenalty {params.blockpenalty} --windowsize {params.windowsize} "
-        "--numthreads {threads} --outfile {output} > {log.ext} 2>&1"
-        # --logfile {log.int}
+        "--numthreads {threads} --outfile {output} --logfile {log.int} > {log.ext} 2>&1"
 
 # =================================================================================================
 #     compute_r2
@@ -160,8 +151,6 @@ rule compute_r2:
     params:
         n = lambda wildcards: get_population_sample_size(wildcards.population) * 2,
         quantiles = config["params"]["pyrho_compute_r2"]["quantiles"],
-    # conda:
-    #     "env.yaml"
     threads:
         num_threads
     log:
@@ -173,4 +162,3 @@ rule compute_r2:
         "pyrho compute_r2 --tablefile {input.hdf} "
         "--quantiles {params.quantiles} --compute_mean --samplesize {params.n} "
         "--outfile {output} --logfile {log.int} > {log.ext} 2>&1"
-        # --logfile {log.int}
