@@ -25,6 +25,7 @@ snakemake.utils.validate(samples, schema="samples.schema.yaml")
 
 sample_names=list(set(samples.index.get_level_values("sample")))
 populations=list(set(samples.population.unique()))
+populations.sort()
 
 # Wildcard constraints: only allow sample names from the spreadsheet to be used
 wildcard_constraints:
@@ -45,8 +46,8 @@ def get_population_samples( population ):
     return pops
 
 # Get the string listing a population name and its samples as expected by smc++ vcf2smc
-def get_population_list_string( wildcards ):
-    return wildcards.population + ":" + ",".join( get_population_samples( wildcards.population ))
+def get_population_list_string( population ):
+    return population + ":" + ",".join( get_population_samples( population ))
 
 # For a given population, get k "distinguished individuals" to be used for the estimation algorithm.
 def get_distinguished_individuals( population, k ):
@@ -68,14 +69,32 @@ logger.info("Total samples: " + str(len(sample_names)))
 logger.info("==================================================================")
 logger.info("")
 
+# Make a triangular list of populations, where we do pop1/pop2, but not pop2/pop1
+# so that we do not have double effort for the split time estimation
+split_list = []
+for i in range(len(populations)):
+    for j in range(i+1, len(populations)):
+        split_list.append( populations[i] + "." + populations[j] )
+# print (split_list)
+
 # =================================================================================================
 #     Target
 # =================================================================================================
 
 rule all:
     input:
+        # per population demographic history plots
         out_dir + "plot.csv",
-        multiext( out_dir + "plot", ".pdf", ".svg", ".png")
+        multiext( out_dir + "plot", ".pdf", ".svg", ".png"),
+
+        # split time estimations for pairs of populations, without duplication due to flipped
+        # positions (pop1/pop2, but not pop2/pop1), and without "diagonal" of the combinations
+        # of populations (pop1/pop1)
+        # expand(
+        #     out_dir + "plot-split.{populations}.{ext}",
+        #     populations = split_list,
+        #     ext = [ "pdf", "svg", "png" ]
+        # )
 
 localrules: all
 
@@ -112,7 +131,9 @@ rule vcf_to_smc:
     output:
         out_dir + "smc/{population}.{chromosome}.{dist_indiv}.smc.gz"
     params:
-        poplist = get_population_list_string, # get the samples for the given population
+        # get the samples for the given population
+        poplist = lambda wildcards: \
+            get_population_list_string(wildcards.population),
         extra = config["params"]["smpcc_vcf2smc"]["extra"]
     container:
         "docker://terhorst/smcpp:latest"
@@ -160,9 +181,9 @@ rule estimate_cv:
     benchmark:
         "benchmarks/estimate_cv/{population}.txt"
     shell:
-        "echo \"Population: {population}\";"
-        "echo \"Input smc files: {input.smc}\";"
-        "smc++ cv {params.extra} {params.mu} {input.smc} -o {params.out_dir} --cores {threads} > {log} 2>&1"
+        "echo \"Population: {wildcards.population}\" > {log} 2>&1;"
+        "echo -e \"Input smc files: {input.smc}\\n\" >> {log} 2>&1;"
+        "smc++ cv {params.extra} {params.mu} {input.smc} -o {params.out_dir} --cores {threads} >> {log} 2>&1"
 
 # =================================================================================================
 #     plot
@@ -174,7 +195,9 @@ rule plot:
         json = expand( out_dir + "{population}/model.final.json", population=populations)
     output:
         csv = out_dir + "plot.csv",
-        img = out_dir + "plot." + config["params"]["smpcc_plot"]["type"]
+        pdf = out_dir + "plot.pdf",
+        svg = out_dir + "plot.svg",
+        png = out_dir + "plot.png",
     params:
         extra = config["params"]["smpcc_plot"]["extra"]
     container:
@@ -182,4 +205,84 @@ rule plot:
     log:
         "logs/plot.log"
     shell:
-        "smc++ plot {output.img} {input.json} --csv {params.extra} > {log} 2>&1"
+        "smc++ plot {output.pdf} {input.json} --csv {params.extra} >  {log} 2>&1 ;"
+        "smc++ plot {output.svg} {input.json}       {params.extra} >> {log} 2>&1 ;"
+        "smc++ plot {output.png} {input.json}       {params.extra} >> {log} 2>&1"
+
+# =================================================================================================
+#     vcf_to_smc joint
+# =================================================================================================
+
+rule vcf_to_smc_joint:
+    input:
+        vcf = config["data"]["vcf"],
+        tbi = config["data"]["vcf"] + ".tbi"
+    output:
+        out_dir + "smc_joint/{population1}.{population2}.{chromosome}.smc.gz"
+    params:
+        # get the samples for the given populations
+        poplist1 = lambda wildcards: \
+            get_population_list_string(wildcards.population1),
+        poplist2 = lambda wildcards: \
+            get_population_list_string(wildcards.population2),
+        extra = config["params"]["smpcc_vcf2smc_joint"]["extra"]
+    container:
+        "docker://terhorst/smcpp:latest"
+    threads:
+        num_threads
+    log:
+        "logs/vcf_to_smc_joint/{population1}.{population2}.{chromosome}.log"
+    benchmark:
+        "benchmarks/vcf_to_smc_joint/{population1}.{population2}.{chromosome}.txt"
+    shell:
+        "smc++ vcf2smc {input.vcf} {output} {wildcards.chromosome} {params.poplist1} {params.poplist2} "
+        "{params.extra} --cores {threads} > {log} 2>&1"
+
+# =================================================================================================
+#     split
+# =================================================================================================
+
+rule split:
+    input:
+        json1 = out_dir + "{population1}/model.final.json",
+        json2 = out_dir + "{population2}/model.final.json",
+        smc1 = expand(
+            out_dir + "smc_joint/{{population1}}.{{population2}}.{chromosome}.smc.gz",
+            chromosome=config["data"]["chromosomes"]
+        ),
+        smc2 = expand(
+            out_dir + "smc_joint/{{population2}}.{{population1}}.{chromosome}.smc.gz",
+            chromosome=config["data"]["chromosomes"]
+        )
+    output:
+        out_dir + "{population1}.{population2}/model.final.json"
+    params:
+        out_dir = out_dir + "{population1}.{population2}"
+    container:
+        "docker://terhorst/smcpp:latest"
+    log:
+        "logs/split/{population1}.{population2}.log"
+    shell:
+        "smc++ split -o {params.out_dir} {input.json1} {input.json2} {input.smc1} {input.smc2} > {log} 2>&1"
+
+# =================================================================================================
+#     plot joint
+# =================================================================================================
+
+rule plot_joint:
+    input:
+        json = out_dir + "{population1}.{population2}/model.final.json"
+    output:
+        pdf = out_dir + "plot-split.{population1}.{population2}.pdf",
+        svg = out_dir + "plot-split.{population1}.{population2}.svg",
+        png = out_dir + "plot-split.{population1}.{population2}.png"
+    params:
+        extra = config["params"]["smpcc_plot"]["extra"]
+    container:
+        "docker://terhorst/smcpp:latest"
+    log:
+        "logs/plot_joint/{population1}.{population2}.log"
+    shell:
+        "smc++ plot {output.pdf} {input.json} {params.extra} >  {log} 2>&1 ;"
+        "smc++ plot {output.svg} {input.json} {params.extra} >> {log} 2>&1 ;"
+        "smc++ plot {output.png} {input.json} {params.extra} >> {log} 2>&1"
