@@ -114,8 +114,8 @@ rule vcf_to_smc:
     params:
         poplist = get_population_list_string, # get the samples for the given population
         extra = config["params"]["smpcc_vcf2smc"]["extra"]
-    # conda:
-    #     "env.yaml"
+    container:
+        "docker://terhorst/smcpp:latest"
     threads:
         num_threads
     log:
@@ -151,8 +151,8 @@ rule estimate_cv:
         mu = config["params"]["smpcc_estimate_cv"]["mutation_rate"],
         extra = config["params"]["smpcc_estimate_cv"]["extra"],
         out_dir = out_dir + "{population}"
-    # conda:
-    #     "env.yaml"
+    container:
+        "docker://terhorst/smcpp:latest"
     threads:
         num_threads
     log:
@@ -175,8 +175,8 @@ rule plot:
         img = out_dir + "plot." + config["params"]["smpcc_plot"]["type"]
     params:
         extra = config["params"]["smpcc_plot"]["extra"]
-    # conda:
-    #     "env.yaml"
+    container:
+        "docker://terhorst/smcpp:latest"
     log:
         "logs/plot.log"
     shell:
