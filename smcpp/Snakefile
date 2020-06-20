@@ -75,7 +75,7 @@ logger.info("")
 rule all:
     input:
         out_dir + "plot.csv",
-        out_dir + "plot." + config["params"]["smpcc_plot"]["type"]
+        multiext( out_dir + "plot", ".pdf", ".svg", ".png")
 
 localrules: all
 
@@ -110,7 +110,7 @@ rule vcf_to_smc:
         vcf = config["data"]["vcf"],
         tbi = config["data"]["vcf"] + ".tbi"
     output:
-        out_dir + "{population}.{chromosome}.{dist_indiv}.smc.gz"
+        out_dir + "smc/{population}.{chromosome}.{dist_indiv}.smc.gz"
     params:
         poplist = get_population_list_string, # get the samples for the given population
         extra = config["params"]["smpcc_vcf2smc"]["extra"]
@@ -138,7 +138,7 @@ rule estimate_cv:
     input:
         smc = lambda wildcards: \
             expand(
-                out_dir + "{{population}}.{chromosome}.{dist_indiv}.smc.gz",
+                out_dir + "smc/{{population}}.{chromosome}.{dist_indiv}.smc.gz",
                 chromosome=config["data"]["chromosomes"],
                 dist_indiv=get_distinguished_individuals(
                     wildcards.population,
@@ -160,6 +160,8 @@ rule estimate_cv:
     benchmark:
         "benchmarks/estimate_cv/{population}.txt"
     shell:
+        "echo \"Population: {population}\";"
+        "echo \"Input smc files: {input.smc}\";"
         "smc++ cv {params.extra} {params.mu} {input.smc} -o {params.out_dir} --cores {threads} > {log} 2>&1"
 
 # =================================================================================================
