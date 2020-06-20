@@ -30,37 +30,37 @@ data:
 params:
 
   # ----------------------------------------------------------------------
-  #     smpcc general
+  #     smcpp general
   # ----------------------------------------------------------------------
 
-  smpcc:
-    num_distinguished_individuals: 10
+  smcpp:
+    num_distinguished_individuals: 8
 
   # ----------------------------------------------------------------------
-  #     smpcc vcf2smc
+  #     smcpp vcf2smc
   # ----------------------------------------------------------------------
 
-  smpcc_vcf2smc:
+  smcpp_vcf2smc:
     extra: ""
 
   # ----------------------------------------------------------------------
-  #     smpcc estimate / cv
+  #     smcpp estimate / cv
   # ----------------------------------------------------------------------
 
-  smpcc_estimate_cv:
+  smcpp_estimate_cv:
     mutation_rate: "7e-9" # Mutation rate for Arabidopsis thaliana
     extra: ""
 
   # ----------------------------------------------------------------------
-  #     smpcc plot
+  #     smcpp plot
   # ----------------------------------------------------------------------
 
-  smpcc_plot:
+  smcpp_plot:
     extra: ""
 
   # ----------------------------------------------------------------------
-  #     smpcc vcf2smc joint
+  #     smcpp vcf2smc joint
   # ----------------------------------------------------------------------
 
-  smpcc_vcf2smc_joint:
+  smcpp_vcf2smc_joint:
     extra: ""

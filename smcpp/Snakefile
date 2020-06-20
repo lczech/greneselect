@@ -134,7 +134,7 @@ rule vcf_to_smc:
         # get the samples for the given population
         poplist = lambda wildcards: \
             get_population_list_string(wildcards.population),
-        extra = config["params"]["smpcc_vcf2smc"]["extra"]
+        extra = config["params"]["smcpp_vcf2smc"]["extra"]
     container:
         "docker://terhorst/smcpp:latest"
     threads:
@@ -163,14 +163,14 @@ rule estimate_cv:
                 chromosome=config["data"]["chromosomes"],
                 dist_indiv=get_distinguished_individuals(
                     wildcards.population,
-                    config["params"]["smpcc"]["num_distinguished_individuals"]
+                    config["params"]["smcpp"]["num_distinguished_individuals"]
                 )
             )
     output:
         out_dir + "{population}/model.final.json"
     params:
-        mu = config["params"]["smpcc_estimate_cv"]["mutation_rate"],
-        extra = config["params"]["smpcc_estimate_cv"]["extra"],
+        mu = config["params"]["smcpp_estimate_cv"]["mutation_rate"],
+        extra = config["params"]["smcpp_estimate_cv"]["extra"],
         out_dir = out_dir + "{population}"
     container:
         "docker://terhorst/smcpp:latest"
@@ -199,7 +199,7 @@ rule plot:
         svg = out_dir + "plot.svg",
         png = out_dir + "plot.png",
     params:
-        extra = config["params"]["smpcc_plot"]["extra"]
+        extra = config["params"]["smcpp_plot"]["extra"]
     container:
         "docker://terhorst/smcpp:latest"
     log:
@@ -225,7 +225,7 @@ rule vcf_to_smc_joint:
             get_population_list_string(wildcards.population1),
         poplist2 = lambda wildcards: \
             get_population_list_string(wildcards.population2),
-        extra = config["params"]["smpcc_vcf2smc_joint"]["extra"]
+        extra = config["params"]["smcpp_vcf2smc_joint"]["extra"]
     container:
         "docker://terhorst/smcpp:latest"
     threads:
@@ -277,7 +277,7 @@ rule plot_joint:
         svg = out_dir + "plot-split.{population1}.{population2}.svg",
         png = out_dir + "plot-split.{population1}.{population2}.png"
     params:
-        extra = config["params"]["smpcc_plot"]["extra"]
+        extra = config["params"]["smcpp_plot"]["extra"]
     container:
         "docker://terhorst/smcpp:latest"
     log:
