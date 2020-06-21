@@ -19,6 +19,9 @@ workingdir = os.getcwd()
 extra_params = {}
 extra_params["log_base"] = os.path.join(workingdir, "slurm-logs")
 
+if not os.path.exists(extra_params["log_base"]):
+    os.makedirs(extra_params["log_base"])
+
 def write_debug_log(msg):
     with open( os.path.join(extra_params["log_base"], "slurm-debug.log"), "a") as debug:
         now = datetime.datetime.now()
