@@ -28,11 +28,11 @@ populations=list(set(samples.population.unique()))
 populations.sort()
 
 if isinstance(config["data"]["chromosomes"], list):
-    chromosome_names = config["data"]["chromosomes"]
+    chromosome_names = [str(x) for x in config["data"]["chromosomes"]]
     chromosome_lengths = {}
 elif isinstance(config["data"]["chromosomes"], dict):
     chromosome_names = list(str(x) for x in config["data"]["chromosomes"].keys())
-    chromosome_lengths = config["data"]["chromosomes"]
+    chromosome_lengths = {str(key): str(value) for key, value in config["data"]["chromosomes"].items()}
 else:
     raise Exception("Invalid entry for data/chromosomes in config file.")
 
