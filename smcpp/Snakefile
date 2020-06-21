@@ -27,16 +27,34 @@ sample_names=list(set(samples.index.get_level_values("sample")))
 populations=list(set(samples.population.unique()))
 populations.sort()
 
+if isinstance(config["data"]["chromosomes"], list):
+    chromosome_names = config["data"]["chromosomes"]
+    chromosome_lengths = {}
+elif isinstance(config["data"]["chromosomes"], dict):
+    chromosome_names = list(str(x) for x in config["data"]["chromosomes"].keys())
+    chromosome_lengths = config["data"]["chromosomes"]
+else:
+    raise Exception("Invalid entry for data/chromosomes in config file.")
+
 # Wildcard constraints: only allow sample names from the spreadsheet to be used
 wildcard_constraints:
     sample="|".join(sample_names),
     population="|".join(populations),
-    chromosome="|".join(config["data"]["chromosomes"])
+    chromosome="|".join(chromosome_names)
 
 # Get a shorthand for the output directory
 out_dir = config["data"]["output_dir"]
 if not out_dir.endswith("/"):
     out_dir += "/"
+
+# If the vcf file does not contain the chromosome lengths in its header, we need to provide them
+# manully. This is done by specifying them in the config file - see there for details.
+# Here, we define a function that uses these lengths for the vcf2smc call if given.
+def get_chromosome_length_string( chromosome ):
+    if chromosome in chromosome_lengths:
+        return "--length " + chromosome_lengths[chromosome]
+    else:
+        return ""
 
 # Get the list of sample names (columns in the vcf file) that are assigned to a given population.
 def get_population_samples( population ):
@@ -45,7 +63,8 @@ def get_population_samples( population ):
     pops.sort()
     return pops
 
-# Get the string listing a population name and its samples as expected by smc++ vcf2smc
+# Get the string listing a population name and its samples as expected by smc++ vcf2smc,
+# in the format "pop:smp1,smp2,..."
 def get_population_list_string( population ):
     return population + ":" + ",".join( get_population_samples( population ))
 
@@ -61,7 +80,7 @@ def get_distinguished_individuals( population, k ):
     return random.sample(samples, k)
 
 logger.info("==================================================================")
-logger.info("Chromosomes: " + str(len(config["data"]["chromosomes"])))
+logger.info("Chromosomes: " + str(len(chromosome_names)))
 logger.info("Populations: " + str(len(populations)))
 for pop in populations:
     logger.info("  - " + pop + ": " + str(len(get_population_samples(pop))) + " samples")
@@ -134,6 +153,9 @@ rule vcf_to_smc:
         # get the samples for the given population
         poplist = lambda wildcards: \
             get_population_list_string(wildcards.population),
+        # get the length of the chromosome, if provided in the config
+        chrlen = lambda wildcards: \
+            get_chromosome_length_string(wildcards.chromosome),
         extra = config["params"]["smcpp_vcf2smc"]["extra"]
     container:
         "docker://terhorst/smcpp:latest"
@@ -145,7 +167,7 @@ rule vcf_to_smc:
         "benchmarks/vcf_to_smc/{population}.{chromosome}.{dist_indiv}.txt"
     shell:
         "smc++ vcf2smc {input.vcf} {output} {wildcards.chromosome} {params.poplist} "
-        "-d {wildcards.dist_indiv} {wildcards.dist_indiv} {params.extra} --cores {threads} > {log} 2>&1"
+        "-d {wildcards.dist_indiv} {wildcards.dist_indiv} {params.chrlen} {params.extra} --cores {threads} > {log} 2>&1"
 
 # =================================================================================================
 #     estimate / cv
@@ -160,7 +182,7 @@ rule estimate_cv:
         smc = lambda wildcards: \
             expand(
                 out_dir + "smc/{{population}}.{chromosome}.{dist_indiv}.smc.gz",
-                chromosome=config["data"]["chromosomes"],
+                chromosome=chromosome_names,
                 dist_indiv=get_distinguished_individuals(
                     wildcards.population,
                     config["params"]["smcpp"]["num_distinguished_individuals"]
@@ -225,6 +247,9 @@ rule vcf_to_smc_joint:
             get_population_list_string(wildcards.population1),
         poplist2 = lambda wildcards: \
             get_population_list_string(wildcards.population2),
+        # get the length of the chromosome, if provided in the config
+        chrlen = lambda wildcards: \
+            get_chromosome_length_string(wildcards.chromosome),
         extra = config["params"]["smcpp_vcf2smc_joint"]["extra"]
     container:
         "docker://terhorst/smcpp:latest"
@@ -236,7 +261,7 @@ rule vcf_to_smc_joint:
         "benchmarks/vcf_to_smc_joint/{population1}.{population2}.{chromosome}.txt"
     shell:
         "smc++ vcf2smc {input.vcf} {output} {wildcards.chromosome} {params.poplist1} {params.poplist2} "
-        "{params.extra} --cores {threads} > {log} 2>&1"
+        "{params.chrlen} {params.extra} --cores {threads} > {log} 2>&1"
 
 # =================================================================================================
 #     split
@@ -248,11 +273,11 @@ rule split:
         json2 = out_dir + "{population2}/model.final.json",
         smc1 = expand(
             out_dir + "smc_joint/{{population1}}.{{population2}}.{chromosome}.smc.gz",
-            chromosome=config["data"]["chromosomes"]
+            chromosome=chromosome_names
         ),
         smc2 = expand(
             out_dir + "smc_joint/{{population2}}.{{population1}}.{chromosome}.smc.gz",
-            chromosome=config["data"]["chromosomes"]
+            chromosome=chromosome_names
         )
     output:
         out_dir + "{population1}.{population2}/model.final.json"

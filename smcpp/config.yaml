@@ -17,8 +17,15 @@ data:
 
   # List of contigs/chromosomes to process. This could be loaded from a fai file that is generated
   # from the vcf in the future, but for now, we hard code for simplicity.
+  # The entries here can either be a simple list of the chromosome names, or, if the vcf file does
+  # not contain the chromosome lengths in its header, the entries here need to be a dict from
+  # chromosome names to their length. For example, either
+  # - "1"
+  # or
+  # 1: "1000000"
+  # work here.
   chromosomes:
-    - "1"
+    1: "1000000"
 
   # Define an output directory.
   output_dir: "out"
