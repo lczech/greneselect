@@ -16,6 +16,9 @@ __default__:
 #     smcpp
 # =================================================================================================
 
+vcf_to_smc:
+  cpus-per-task: 2
+
 estimate_cv:
   partition: DPB,PREEMPTION # Use DPB and PREEMPTION. As we have restarting jobs, that should be okay
   time: 8:00:00
