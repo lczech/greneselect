@@ -1,18 +1,64 @@
+# =================================================================================================
+#     General Setup
+# =================================================================================================
+
+import pandas as pd
 import os
 
-include: "../rules/common.smk"
+# Ensure min Snakemake version
+snakemake.utils.min_version("5.7")
+
+# Load config file
+configfile: "config.yaml"
+
+# =================================================================================================
+#     Data
+# =================================================================================================
+
+# We accept a simple bam file, a list of bam files, or a list of lists (which is a dict here),
+# where each list is first merged into one large bam file.
+samples = {}
+if isinstance(config["data"]["samples"], str):
+    samples["sample"] = [config["data"]["samples"]]
+elif isinstance(config["data"]["samples"], list):
+    samples["samples"] = config["data"]["samples"]
+elif isinstance(config["data"]["samples"], dict):
+    samples = config["data"]["samples"]
+else:
+    raise Exception("Invalid entry for data/samples in config file.")
+
+# Get a shorthand for the output directory
+out_dir = config["data"]["output_dir"]
+if not out_dir.endswith("/"):
+    out_dir += "/"
+
+# bam_basenames = [ os.path.basename(bam) for bam in get_all_bams() ]
 
 # =================================================================================================
 #     Target
 # =================================================================================================
 
-bam_basenames = [ os.path.basename(bam) for bam in get_all_bams() ]
-
 rule all:
     input:
-        expand( "out/{bam_basenames}.freq", bam_basenames=bam_basenames )
+        expand( out_dir + "freq-{sample}.txt", sample=samples.keys() )
 
 localrules: all
+
+# =================================================================================================
+#     merge bam files
+# =================================================================================================
+
+rule samtools_merge:
+    input:
+        lambda wildcards: samples[wildcards.sample]
+    output:
+        temp(out_dir + "merge-{sample}.bam")
+    params:
+        "" # optional additional parameters as string
+    threads:  # Samtools takes additional threads through its option -@
+        8     # This value - 1 will be sent to -@
+    wrapper:
+        "0.61.0/bio/samtools/merge"
 
 # =================================================================================================
 #     bamfreq
@@ -20,16 +66,18 @@ localrules: all
 
 rule bamfreq:
     input:
-        get_all_bams()
+        out_dir + "merge-{sample}.bam"
     output:
-        [ "out/" + os.path.basename(bam) + ".freq" for bam in get_all_bams() ]
+        out_dir + "freq-{sample}.txt"
     params:
-        out_prefix = "out/",
         extra = config["params"]["bamfreq"]["extra"]
     log:
-        "out/bamfreq.log"
-    run:
-        for bam in input:
-            out_file = "{params.out_prefix}" + os.path.basename(bam) + ".freq"
-            shell( "tools/bamfreq/freq {params.extra} " + bam + " > " + out_file + " 2> {log}" )
+        out_dir + "bamfreq-{sample}.log"
+    shell:
+        "bamfreq/freq {params.extra} {input} > {output} 2> {log}"
+
+    # run:
+        # for bam in input:
+        #     out_file = "{params.out_prefix}" + os.path.basename(bam) + ".freq"
+        #     shell( "tools/bamfreq/freq {params.extra} " + bam + " > " + out_file + " 2> {log}" )
         # "bamfreq {input} > {output} 2> {log}"

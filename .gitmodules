@@ -4,3 +4,6 @@
 [submodule "tools/bamfreq"]
 	path = bamfreq/bamfreq
 	url = git@github.com:MoisesExpositoAlonso/bamfreq.git
+[submodule "bamfreq/grenepool"]
+	path = bamfreq/grenepool
+	url = git@github.com:MoisesExpositoAlonso/grenepool.git

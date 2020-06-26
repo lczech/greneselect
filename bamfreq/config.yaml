@@ -1,4 +1,25 @@
 # =================================================================================================
+#     Input Data
+# =================================================================================================
+
+data:
+
+  # List of all samples to process. This can either be a single bam file, a list of bam files
+  # (which will all be merged into one first), or, as shown in the example here, a list of lists,
+  # where each of them will be treated as a set of samples to be merged. I.e., the data here will
+  # result in three merged bam files (A, B, C), for which bamfreq then is called individually.
+  samples:
+    A: "example/A-1.sorted.bam"
+    B:
+      - "example/B-1.sorted.bam"
+      - "example/B-2.sorted.bam"
+    C:
+      - "example/C-1.sorted.bam"
+
+  output_dir:
+    "out"
+
+# =================================================================================================
 #     Tool Parameters
 # =================================================================================================
 
