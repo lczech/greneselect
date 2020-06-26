@@ -1,9 +1,9 @@
-[submodule "tools/popoolation"]
+[submodule "popoolation/popoolation"]
 	path = popoolation/popoolation
-	url = git@github.com:lczech/popoolation.git
-[submodule "tools/bamfreq"]
+	url = https://github.com/lczech/popoolation.git
+[submodule "bamfreq/bamfreq"]
 	path = bamfreq/bamfreq
-	url = git@github.com:MoisesExpositoAlonso/bamfreq.git
+	url = https://github.com/MoisesExpositoAlonso/bamfreq.git
 [submodule "bamfreq/grenepool"]
 	path = bamfreq/grenepool
-	url = git@github.com:MoisesExpositoAlonso/grenepool.git
+	url = https://github.com/MoisesExpositoAlonso/grenepool.git
