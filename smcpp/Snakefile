@@ -191,6 +191,7 @@ rule estimate_cv:
     output:
         out_dir + "{population}/model.final.json"
     params:
+        algorithm = config["params"]["smcpp_estimate_cv"]["algorithm"],
         mu = config["params"]["smcpp_estimate_cv"]["mutation_rate"],
         extra = config["params"]["smcpp_estimate_cv"]["extra"],
         out_dir = out_dir + "{population}"
@@ -205,7 +206,8 @@ rule estimate_cv:
     shell:
         "echo \"Population: {wildcards.population}\" > {log} 2>&1;"
         "echo -e \"Input smc files: {input.smc}\\n\" >> {log} 2>&1;"
-        "smc++ cv {params.extra} {params.mu} {input.smc} -o {params.out_dir} --cores {threads} >> {log} 2>&1"
+        "smc++ {params.algorithm} {params.extra} {params.mu} {input.smc} -o {params.out_dir} "
+        "--cores {threads} >> {log} 2>&1"
 
 # =================================================================================================
 #     plot

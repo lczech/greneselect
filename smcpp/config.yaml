@@ -55,6 +55,7 @@ params:
   # ----------------------------------------------------------------------
 
   smcpp_estimate_cv:
+    algorithm: "estimate" # "estimate" or "cv"
     mutation_rate: "7e-9" # Mutation rate for Arabidopsis thaliana
     extra: ""
 
