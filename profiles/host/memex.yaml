@@ -21,6 +21,6 @@ vcf_to_smc:
 
 estimate_cv:
   partition: DPB,PREEMPTION # Use DPB and PREEMPTION. As we have restarting jobs, that should be okay
-  time: 8:00:00
-  mem: 15G
+  time: "8:00:00"
+  mem: "15G"
   cpus-per-task: 24
