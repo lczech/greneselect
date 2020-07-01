@@ -204,8 +204,8 @@ rule estimate_cv:
     benchmark:
         "benchmarks/estimate_cv/{population}.txt"
     shell:
-        "echo \"Population: {wildcards.population}\" > {log} 2>&1;"
-        "echo -e \"Input smc files: {input.smc}\\n\" >> {log} 2>&1;"
+        # "echo \"Population: {wildcards.population}\" > {log} 2>&1;"
+        # "echo -e \"Input smc files: {input.smc}\\n\" >> {log} 2>&1;"
         "smc++ {params.algorithm} {params.extra} {params.mu} {input.smc} -o {params.out_dir} "
         "--cores {threads} >> {log} 2>&1"
 
