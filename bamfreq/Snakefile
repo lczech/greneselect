@@ -40,8 +40,8 @@ if not out_dir.endswith("/"):
 
 rule all:
     input:
-        expand(out_dir + "freq-{freq1}-{freq2}.fvcf", freq1=samples.keys(), freq2=samples.keys() )
-        # expand( out_dir + "freq-{sample}.txt", sample=samples.keys() )
+        expand(out_dir + "pool/{freq1}-{freq2}.samples", freq1=samples.keys(), freq2=samples.keys() )
+        # expand( out_dir + "freq/{sample}.txt", sample=samples.keys() )
 
 localrules: all
 
@@ -53,7 +53,7 @@ rule samtools_merge:
     input:
         lambda wildcards: samples[wildcards.sample]
     output:
-        temp(out_dir + "merge-{sample}.bam")
+        temp(out_dir + "merge/{sample}.bam")
     params:
         "" # optional additional parameters as string
     threads:  # Samtools takes additional threads through its option -@
@@ -67,13 +67,13 @@ rule samtools_merge:
 
 rule bamfreq:
     input:
-        out_dir + "merge-{sample}.bam"
+        out_dir + "merge/{sample}.bam"
     output:
-        out_dir + "freq-{sample}.txt"
+        out_dir + "freq/{sample}.txt"
     params:
         extra = config["params"]["bamfreq"]["extra"]
     log:
-        out_dir + "bamfreq-{sample}.log"
+        out_dir + "log/bamfreq-{sample}.log"
     shell:
         "{workflow.basedir}/bamfreq/freq {params.extra} {input} > {output} 2> {log}"
 
@@ -89,12 +89,17 @@ rule bamfreq:
 
 rule grenepool:
     input:
-        freq1 = out_dir + "freq-{freq1}.txt",
-        freq2 = out_dir + "freq-{freq2}.txt"
+        freq1 = out_dir + "freq/{freq1}.txt",
+        freq2 = out_dir + "freq/{freq2}.txt"
     output:
-        out1 = out_dir + "freq-{freq1}-{freq2}.fvcf",
-        out2 = out_dir + "freq-{freq1}-{freq2}.fvcf"
+        out = out_dir + "pool/{freq1}-{freq2}.samples"
+    params:
+        outname = out_dir + "pool/{freq1}-{freq2}"
     log:
-        out_dir + "grenepool-{freq1}-{freq2}.log"
+        out_dir + "log/grenepool-{freq1}-{freq2}.log"
     shell:
-        "{workflow.basedir}/grenepool/pool {output.out1} {input} > {output.out2} 2> {log}"
+        # grenepool exits with code 1, which usually is an error and is treated as such,
+        # but were, we want to ignore this.
+        "set +e ;"
+        "{workflow.basedir}/grenepool/pool {params.outname} {input} > {log} 2>&1 ;"
+        "exit 0"
