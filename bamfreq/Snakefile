@@ -40,7 +40,8 @@ if not out_dir.endswith("/"):
 
 rule all:
     input:
-        expand( out_dir + "freq-{sample}.txt", sample=samples.keys() )
+        expand(out_dir + "freq-{freq1}-{freq2}.fvcf", freq1=samples.keys(), freq2=samples.keys() )
+        # expand( out_dir + "freq-{sample}.txt", sample=samples.keys() )
 
 localrules: all
 
@@ -74,10 +75,26 @@ rule bamfreq:
     log:
         out_dir + "bamfreq-{sample}.log"
     shell:
-        "bamfreq/freq {params.extra} {input} > {output} 2> {log}"
+        "{workflow.basedir}/bamfreq/freq {params.extra} {input} > {output} 2> {log}"
 
     # run:
         # for bam in input:
         #     out_file = "{params.out_prefix}" + os.path.basename(bam) + ".freq"
         #     shell( "tools/bamfreq/freq {params.extra} " + bam + " > " + out_file + " 2> {log}" )
         # "bamfreq {input} > {output} 2> {log}"
+
+# =================================================================================================
+#     grenepool
+# =================================================================================================
+
+rule grenepool:
+    input:
+        freq1 = out_dir + "freq-{freq1}.txt",
+        freq2 = out_dir + "freq-{freq2}.txt"
+    output:
+        out1 = out_dir + "freq-{freq1}-{freq2}.fvcf",
+        out2 = out_dir + "freq-{freq1}-{freq2}.fvcf"
+    log:
+        out_dir + "grenepool-{freq1}-{freq2}.log"
+    shell:
+        "{workflow.basedir}/grenepool/pool {output.out1} {input} > {output.out2} 2> {log}"
