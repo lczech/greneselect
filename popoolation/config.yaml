@@ -1,12 +1,49 @@
 # =================================================================================================
+#     Input Data
+# =================================================================================================
+
+data:
+
+  # Directory where the mapped reads are stored. All `bam` and `bai` files from there are used.
+  # Using our grenepipe, a reasonable choice is the "dedup" output directory.
+  mapped_samples: "../grenepipe/dedup"
+
+  reference:
+    # Path to the reference genome against which the sequences were mapped.
+    genome: "../grenepipe/data/genome.fa"
+
+# =================================================================================================
 #     Tool Parameters
 # =================================================================================================
 
 params:
 
-  # ----------------------------------------------------------------------
-  #     popoolation
-  # ----------------------------------------------------------------------
+  # All metrics to be computed. Valid values: "pi", "theta", "d"
+  metrics:
+    - "pi"
+    - "theta"
+    - "d"
 
-  popoolation:
-    extra: ""
+  # Set of window sizes for which the above metrics are to be computed.
+  # Currently, the step size (stride) is always set equal to the window size.
+  windowsizes:
+    - 100
+    - 1000
+    - 10000
+
+  # Params for the variance sliding window script.
+  min_count: 2
+  min_qual:  20
+  min_cov:   4
+  max_cov:   400
+  pool_size: 20
+
+  # Extra params for the PoPoolation script "Variance-sliding.pl"
+  extra_variance: ""
+
+  # Params for the visualization script.
+  ymin: -0.01
+  ymax: 1.0
+
+  # Extra params for the PoPoolation script "Visualise-output.pl"
+  extra_visualize: ""

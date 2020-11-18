@@ -1,4 +1,41 @@
-include: "../rules/common.smk"
+# =================================================================================================
+#     Initialization
+# =================================================================================================
+
+import pandas as pd
+import os
+import glob
+
+# Ensure min Snakemake version
+snakemake.utils.min_version("5.7")
+
+# Check if the working directory contains a "config.yaml" configuration file, and load this.
+configfile: "config.yaml"
+# snakemake.utils.validate(config, schema="../schemas/config.schema.yaml")
+
+# =================================================================================================
+#     Helper Functions
+# =================================================================================================
+
+def get_fai():
+    return config["data"]["reference"]["genome"] + ".fai"
+
+# contigs in reference genome
+def get_contigs():
+    return pd.read_table(get_fai(), header=None, usecols=[0], squeeze=True, dtype=str)
+
+def get_contig_list():
+    return " ".join(get_contigs())
+
+# Return the bam file(s) for all samples
+def get_all_bams():
+    bams = glob.glob( os.path.join( config["data"]["mapped_samples"], "*.bam"))
+    return bams
+
+# Return the bai file(s) for all samples
+def get_all_bais():
+    bais = glob.glob( os.path.join( config["data"]["mapped_samples"], "*.bai"))
+    return bais
 
 # =================================================================================================
 #     Target
@@ -6,12 +43,16 @@ include: "../rules/common.smk"
 
 rule all:
     input:
-        "out/varslid.pdf"
+        expand(
+            "out/{metric}-sliding-{windowsize}.pdf",
+            metric     = config["params"]["metrics"],
+            windowsize = config["params"]["windowsizes"]
+        )
 
 localrules: all
 
 # =================================================================================================
-#     PoPoolation
+#     Pileup
 # =================================================================================================
 
 # Unfortunately, PoPoolation needs uncompressed pileup files...
@@ -28,18 +69,74 @@ rule popoolation_pileup:
     log:
         "out/pileup.log"
     conda:
-        "../envs/popoolation.yaml"
+        "env.yaml"
     shell:
         "samtools mpileup -f {input.ref} {input.samples} > {output} 2> {log}"
 
-rule popoolation:
+# =================================================================================================
+#     Sliding Window Variance
+# =================================================================================================
+
+rule popoolation_sliding:
     input:
-        pileup="out/all.pileup"
+        pileup = "out/all.pileup"
     output:
-        "out/varslid.pdf"
+        txt = "out/{metric}-sliding-{windowsize}.txt"
+    params:
+        # Params for the variance sliding window script.
+        min_count = config["params"]["min_count"],
+        min_qual  = config["params"]["min_qual"],
+        min_cov   = config["params"]["min_cov"],
+        max_cov   = config["params"]["max_cov"],
+        pool_size = config["params"]["pool_size"],
+
+        # Extra params
+        extra_var = config["params"]["extra_variance"]
     log:
-        "out/varslid.log"
+        "log/sliding-{metric}-{windowsize}.log"
+    benchmark:
+        "benchmarks/sliding-{metric}-{windowsize}.log"
     conda:
         "env.yaml"
+    group:
+        "var_sliding"
     shell:
-        "scripts/popoolation.sh {input.pileup} \"" + get_contig_list() + "\" {output} > {log} 2>&1"
+        # Run the variance sliding window script.
+        "perl {workflow.basedir}/popoolation/Variance-sliding.pl "
+        "--input {input.pileup} --measure {wildcards.metric} "
+        "--min-count {params.min_count} --min-qual {params.min_qual} --pool-size {params.pool_size} "
+        "--min-coverage {params.min_cov} --max-coverage {params.max_cov} "
+        "--window-size {wildcards.windowsize} --step-size {wildcards.windowsize} {params.extra_var}"
+        "--output {output.txt} > {log} 2>&1 ; "
+
+# =================================================================================================
+#     Visualization
+# =================================================================================================
+
+rule popoolation_visualize:
+    input:
+        txt = "out/{metric}-sliding-{windowsize}.txt",
+        fai = get_fai()
+    output:
+        pdf = "out/{metric}-sliding-{windowsize}.pdf"
+    params:
+        # Params for the visualization script.
+        ymin = "--ymin \"" + str(config["params"]["ymin"]) + "\"" if config["params"]["ymin"] else "",
+        ymax = "--ymax \"" + str(config["params"]["ymax"]) + "\"" if config["params"]["ymax"] else "",
+
+        # Extra params
+        extra_vis = config["params"]["extra_visualize"],
+        contig_list = get_contig_list()
+    log:
+        "log/visualize-{metric}-{windowsize}.log"
+    benchmark:
+        "benchmarks/visualize-{metric}-{windowsize}.log"
+    conda:
+        "env.yaml"
+    group:
+        "var_sliding"
+    shell:
+        # Run the visualization script.
+        "perl {workflow.basedir}/popoolation/Visualise-output.pl "
+        "--input {input.txt} --output {output.pdf} --chromosomes \"{params.contig_list}\" "
+        "--ylab {wildcards.metric} {params.ymin} {params.ymax} {params.extra_vis} > {log} 2>&1"
